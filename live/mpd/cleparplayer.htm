@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clappr DASH Player with ConfiguracionCanales</title>
+
+    <!-- Include Clappr and related plugins -->
+    <script src="//cdn.jsdelivr.net/npm/@clappr/player@0.4.0/dist/clappr.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/mux.js@5.6.7/dist/mux.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/level-selector@latest/dist/level-selector.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/clappr-pip@latest/dist/clappr-pip.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/clappr-playback-rate-plugin@latest/dist/clappr-playback-rate-plugin.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/shaka-player@2.5.10/dist/shaka-player.compiled.min.js"></script>
+    <script src="//cdn.jsdelivr.net/gh/clappr/dash-shaka-playback@latest/dist/dash-shaka-playback.external.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/cdnbye-shaka@latest"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #player {
+            width: 100%;
+            height: 100%;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Clappr Player -->
+<div id="player"></div>
+
+<script>
+    // The ConfiguracionCanales object with stream data
+    var ConfiguracionCanales = {
+        "USANETWORK": {
+            "url": "https://fsly.stream.peacocktv.com/Content/CMAF_OL1-CTR-4s/Live/channel(usa-west)/master.mpd",
+            "k1": "252a671825ba31ec8433f978c32ccf6d",
+            "k2": "ee560759ecc8d2274df2e63fcef56915"
+        },
+        "CANAL_5": {
+            "url": "https://channel05.akamaized.net/hls/live/2033783/event01/index.m3u8"
+        },
+        "TV_LA_1_ES": {
+            "url": "https://ott.zapitv.com/live/eds_c2/la1_4k/dash_live_enc/la1_4k.mpd",
+            "k1": "a3abc44525eef3b0a7af9138a9dbe34a",
+            "k2": "7740f8ae4223ce5ba293028f7f78f1c1"
+        }
+    };
+
+    // Function to get the 'id' parameter from the URL
+    function getParameterByName(name) {
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(window.location.href);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+
+    // Get the 'id' parameter from the URL
+    var id = getParameterByName('id'); 
+
+    // Get the corresponding configuration from ConfiguracionCanales
+    var config = ConfiguracionCanales[id];
+
+    if (config) {
+        // Prepare sources array
+        var sources = [];
+
+        // If the URL is an HLS (.m3u8) stream
+        if (config.url.includes('.m3u8')) {
+            sources.push({
+                file: config.url
+            });
+        }
+
+        // If the URL is a DASH (.mpd) stream with DRM keys
+        if (config.url.includes('.mpd') && config.k1 && config.k2) {
+            sources.push({
+                file: config.url,
+                drm: {"clearkey": {"keyId": config.k1, "key": config.k2}}
+            });
+        }
+
+        // Initialize the Clappr player
+        var player = new Clappr.Player({
+            source: sources,
+            mimeType: 'application/dash+xml',
+            height: '100%',
+            width: '100%',
+            autoPlay: true,  // Start playing automatically
+            preload: 'auto',  // Preload video
+            allowUserInteraction: true,  // Allow user interactions
+            plugins: [
+                LevelSelector,  // Level selector for adaptive bitrate streaming
+                DashShakaPlayback,  // Shaka playback for DASH streams
+                ChromecastPlugin,  // Chromecast support
+                ClapprPip.PipButton,  // Picture-in-Picture button
+                ClapprPip.PipPlugin,  // Picture-in-Picture plugin
+                Clappr.MediaControl  // Media control for player UI
+            ],
+            chromecast: {
+                appId: '9DFB77C0',  // Chromecast app ID
+                contentType: 'video/mp4',  // Chromecast content type
+            },
+            shakaConfiguration: {
+                drm: {
+                    clearKeys: {
+                        [config.k1]: config.k2  // DRM configuration
+                    }
+                },
+                preferredAudioLanguage: 'en-US',
+            },
+            shakaOnBeforeLoad: function(shaka_player) {
+                // Optional custom configuration for Shaka player before it loads
+            },
+            events: {
+                onReady: function() {
+                    var plugin = this.getPlugin('click_to_pause');
+                    plugin && plugin.disable();  // Disable click-to-pause if enabled
+                }
+            },
+            parentId: '#player',  // Attach the player to the DOM element with ID 'player'
+        });
+    } else {
+        console.error("No configuration found for ID:", id);
+    }
+</script>
+
+</body>
+</html>
